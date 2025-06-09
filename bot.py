@@ -51,9 +51,10 @@ def send_telegram_message(message, image_url=None):
     else:
         payload["text"] = message
     try:
-        requests.post(url, json=payload)
+        response = requests.post(url, json=payload)
+        return response.json().get("result", {}).get("message_id")
     except:
-        pass
+        return None
 
 def send_telegram_document(caption, filepath):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
@@ -65,7 +66,19 @@ def send_telegram_document(caption, filepath):
                 "caption": caption,
                 "parse_mode": "MarkdownV2"
             }
-            requests.post(url, data=payload, files=files)
+            response = requests.post(url, data=payload, files=files)
+            return response.json().get("result", {}).get("message_id")
+    except:
+        return None
+
+def delete_telegram_message(message_id):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "message_id": message_id
+    }
+    try:
+        requests.post(url, json=payload)
     except:
         pass
 
@@ -173,33 +186,32 @@ def analyze_and_cache_signal():
             continue
     cached_signal = best
 
+def send_reminder():
+    if not cached_signal:
+        msg_id = send_telegram_message("⏰ *Reminder:* Signal in 2 minutes\\! Load your bot\\! [app\\.binarytool\\.site](https://app.binarytool.site)")
+    else:
+        caption = "⏰ *Reminder:* Signal in 2 minutes\\! Load your bot at [app\\.binarytool\\.site](https://app.binarytool.site)"
+        filepath = UNDER6_BOT_PATH if cached_signal["trade_type"] == "UNDER 6" else OVER3_BOT_PATH
+        msg_id = send_telegram_document(caption, filepath)
+
+    if msg_id:
+        threading.Timer(50 * 60, delete_telegram_message, args=[msg_id]).start()
+
 def send_smart_signal():
     if not cached_signal:
         send_telegram_message("⚠️ *Signal Generation Failed*: No valid signal available")
         return
 
     msg = generate_signal_message(cached_signal)
-    send_telegram_message(msg, image_url=BOT_IMAGE_URL)
+    msg_id = send_telegram_message(msg, image_url=BOT_IMAGE_URL)
 
-    # Send expiration notice after 5 minutes
-    time.sleep(SIGNAL_VALID_MINUTES * 50)
-    send_telegram_message("🛑 *SIGNAL ENDED*\nNext signal in 1 hour\\.\nShare feedback via t\\.me/your_channel")
-
-def send_reminder():
-    if not cached_signal:
-        send_telegram_message("⏰ *Reminder:* Signal in 10 minutes\\! Load your bot\\! [app\\.binarytool\\.site](https://app.binarytool.site)")
-        return
-
-    caption = "⏰ *Reminder:* Signal in 10 minutes\\! Load your bot at [app\\.binarytool\\.site](https://app.binarytool.site)"
-    if cached_signal["trade_type"] == "UNDER 6":
-        send_telegram_document(caption, UNDER6_BOT_PATH)
-    else:
-        send_telegram_document(caption, OVER3_BOT_PATH)
+    if msg_id:
+        threading.Timer(50 * 60, delete_telegram_message, args=[msg_id]).start()
 
 def setup_scheduler():
     for h in range(24):
         signal_time = f"{h:02d}:00"
-        reminder_time = f"{(h - 1 if h > 0 else 23):02d}:50"  # 10 minutes before signal
+        reminder_time = f"{h:02d}:58"  # 2 minutes before the signal
 
         schedule.every().day.at(reminder_time).do(analyze_and_cache_signal)
         schedule.every().day.at(reminder_time).do(send_reminder)
