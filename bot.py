@@ -188,7 +188,7 @@ def analyze_and_cache_signal():
 
 def send_reminder():
     if not cached_signal:
-        msg_id = send_telegram_message("⏰ *Reminder:* Signal in 2 minutes\\! Load your bot\\! [app\\.binarytool\\.site](https://app.binarytool.site)")
+        msg_id = send_telegram_message("⏰ *Reminder:* Signal in 2 minutes\\! Load your bot\\! [a](https://your deriv app)")
     else:
         caption = "⏰ *Reminder:* Signal in 2 minutes\\! Load your bot at )"
         filepath = UNDER6_BOT_PATH if cached_signal["trade_type"] == "UNDER 6" else OVER3_BOT_PATH
